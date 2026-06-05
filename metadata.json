@@ -1,0 +1,6 @@
+{
+  "name": "Analyse Financière & Chatbot IA",
+  "description": "Gestion de budget, projections d'épargne et assistant intelligent basé sur l'IA Gemini pour optimiser vos finances personnelles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
