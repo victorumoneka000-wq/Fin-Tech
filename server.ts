@@ -12,10 +12,17 @@ app.use(express.json());
 
 // Initialize Gemini SDK with User-Agent telemetry
 const apiKey = process.env.GEMINI_API_KEY;
+const geminiBaseUrl = process.env.GEMINI_BASE_URL || undefined;
+
+if (geminiBaseUrl) {
+  console.log(`[Gemini SDK] Utilisation de l'adresse de contournement/proxy pour l'API : ${geminiBaseUrl}`);
+}
+
 const ai = apiKey
   ? new GoogleGenAI({
       apiKey: apiKey,
       httpOptions: {
+        baseUrl: geminiBaseUrl,
         headers: {
           "User-Agent": "aistudio-build",
         },
@@ -230,7 +237,9 @@ const startServer = async () => {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server is running at http://0.0.0.0:${PORT}`);
+    console.log(`\n🚀 Serveur démarré avec succès !`);
+    console.log(`👉 Pour accéder à votre application localement, utilisez : http://localhost:${PORT}`);
+    console.log(`👉 Adresse réseau générique : http://127.0.0.1:${PORT}\n`);
   });
 };
 

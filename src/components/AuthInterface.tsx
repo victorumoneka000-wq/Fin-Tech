@@ -112,15 +112,6 @@ export default function AuthInterface({
                 Les clés d'environnement Supabase ne sont pas définies par défaut. Vous pouvez tester en mode démo local ou brancher votre propre projet.
               </div>
             </div>
-            <div className="flex gap-2 justify-end mt-1">
-              <button
-                type="button"
-                onClick={() => setShowCustomConfigPanel(true)}
-                className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 rounded text-[10px] font-bold uppercase tracking-wide transition-colors"
-              >
-                ⚙️ Configurer mes clés
-              </button>
-            </div>
           </div>
         )}
 
@@ -397,132 +388,7 @@ export default function AuthInterface({
             🔒 Vos données sont sécurisées. En mode hors-ligne, tout est stocké de façon étanche sur votre navigateur (LocalStorage).
           </div>
 
-          <div className="border-t border-slate-800/30 mt-2 pt-3 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSqlGuide(!showSqlGuide)}
-              className="w-full py-1.5 px-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 font-bold text-[10px] rounded-lg tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Database className="w-3.5 h-3.5" /> 
-              {showSqlGuide ? "Masquer le script SQL" : "Code SQL : Créer la Base de Données"}
-            </button>
 
-            {showSqlGuide && (
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-2 animate-fadeIn max-h-[220px] overflow-y-auto font-sans leading-relaxed text-[11px] text-slate-300">
-                <div className="flex justify-between items-center bg-slate-950 p-2 rounded-lg border border-slate-850">
-                  <span className="font-bold text-[10px] uppercase text-indigo-300 tracking-wider">Script SQL Supabase d'initialisation</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const sqlText = `-- 1. Table Profiles\n` +
-                        `create table if not exists public.profiles (\n` +
-                        `  id uuid references auth.users on delete cascade primary key,\n` +
-                        `  name text not null,\n` +
-                        `  revenu_mensuel numeric default 2000,\n` +
-                        `  loyer numeric default 500,\n` +
-                        `  transport numeric default 100,\n` +
-                        `  alimentation numeric default 300,\n` +
-                        `  factures numeric default 100,\n` +
-                        `  loisirs numeric default 100,\n` +
-                        `  epargne numeric default 1000,\n` +
-                        `  objectif_nom text default 'Voyage',\n` +
-                        `  objectif_montant numeric default 5000\n` +
-                        `);\n\n` +
-                        `alter table public.profiles enable row level security;\n\n` +
-                        `create policy "Permettre la lecture individuelle" on public.profiles\n` +
-                        `  for select using (auth.uid() = id);\n\n` +
-                        `create policy "Permettre l'insertion individuelle" on public.profiles\n` +
-                        `  for insert with check (auth.uid() = id);\n\n` +
-                        `create policy "Permettre la modification individuelle" on public.profiles\n` +
-                        `  for update using (auth.uid() = id);\n\n` +
-                        `-- 2. Table Transactions\n` +
-                        `create table if not exists public.transactions (\n` +
-                        `  id text primary key,\n` +
-                        `  user_id uuid references auth.users on delete cascade not null,\n` +
-                        `  type text not null check (type in ('Revenu', 'Dépense')),\n` +
-                        `  categorie text not null,\n` +
-                        `  montant numeric not null,\n` +
-                        `  description text,\n` +
-                        `  date_transaction text not null\n` +
-                        `);\n\n` +
-                        `alter table public.transactions enable row level security;\n\n` +
-                        `create policy "Lecture individuelle transactions" on public.transactions\n` +
-                        `  for select using (auth.uid() = user_id);\n\n` +
-                        `create policy "Insertion individuelle transactions" on public.transactions\n` +
-                        `  for insert with check (auth.uid() = user_id);\n\n` +
-                        `create policy "Suppression individuelle transactions" on public.transactions\n` +
-                        `  for delete using (auth.uid() = user_id);\n\n` +
-                        `create policy "Modification individuelle transactions" on public.transactions\n` +
-                        `  for update using (auth.uid() = user_id);`;
-                      navigator.clipboard.writeText(sqlText);
-                      setCopiedSql(true);
-                      setTimeout(() => setCopiedSql(false), 2000);
-                    }}
-                    className="px-2 py-1 bg-indigo-600 hover:bg-slate-800 text-white hover:text-indigo-400 font-extrabold text-[9px] rounded uppercase tracking-wider transition-all"
-                  >
-                    {copiedSql ? "Copié !" : "Copier"}
-                  </button>
-                </div>
-                
-                <p className="text-[10px] text-slate-400 leading-normal">
-                  Copiez le code ci-dessous et collez-le dans l'onglet <strong>SQL Editor</strong> de votre projet Supabase pour créer la structure et configurer la sécurité RLS.
-                </p>
-
-                <pre className="p-2.5 bg-slate-950 border border-slate-850 rounded-lg text-[10px] font-mono text-emerald-400 overflow-x-auto whitespace-pre leading-normal pointer-events-auto select-all">
-{`-- 1. Table Profiles
-create table if not exists public.profiles (
-  id uuid references auth.users on delete cascade primary key,
-  name text not null,
-  revenu_mensuel numeric default 3500,
-  loyer numeric default 800,
-  transport numeric default 150,
-  alimentation numeric default 450,
-  factures numeric default 200,
-  loisirs numeric default 300,
-  epargne numeric default 8400,
-  objectif_nom text default 'Nouvelle Voiture Électrique',
-  objectif_montant numeric default 18000
-);
-
-alter table public.profiles enable row level security;
-
-create policy "Permettre la lecture individuelle" on public.profiles
-  for select using (auth.uid() = id);
-
-create policy "Permettre l'insertion individuelle" on public.profiles
-  for insert with check (auth.uid() = id);
-
-create policy "Permettre la modification individuelle" on public.profiles
-  for update using (auth.uid() = id);
-
--- 2. Table Transactions
-create table if not exists public.transactions (
-  id text primary key,
-  user_id uuid references auth.users on delete cascade not null,
-  type text not null check (type in ('Revenu', 'Dépense')),
-  categorie text not null,
-  montant numeric not null,
-  description text,
-  date_transaction text not null
-);
-
-alter table public.transactions enable row level security;
-
-create policy "Lecture individuelle transactions" on public.transactions
-  for select using (auth.uid() = user_id);
-
-create policy "Insertion individuelle transactions" on public.transactions
-  for insert with check (auth.uid() = user_id);
-
-create policy "Suppression individuelle transactions" on public.transactions
-  for delete using (auth.uid() = user_id);
-
-create policy "Modification individuelle transactions" on public.transactions
-  for update using (auth.uid() = user_id);`}
-                </pre>
-              </div>
-            )}
-          </div>
         </div>
 
       </div>
