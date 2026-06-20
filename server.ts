@@ -12,10 +12,15 @@ app.use(express.json());
 
 // Initialize Gemini SDK with User-Agent telemetry
 const apiKey = process.env.GEMINI_API_KEY;
-const geminiBaseUrl = process.env.GEMINI_BASE_URL || undefined;
+let geminiBaseUrl: string | undefined = process.env.GEMINI_BASE_URL || undefined;
 
 if (geminiBaseUrl) {
-  console.log(`[Gemini SDK] Utilisation de l'adresse de contournement/proxy pour l'API : ${geminiBaseUrl}`);
+  if (!geminiBaseUrl.startsWith("http://") && !geminiBaseUrl.startsWith("https://")) {
+    console.warn(`[Gemini SDK] Attention : GEMINI_BASE_URL "${geminiBaseUrl}" est invalide (doit commencer par http:// ou https://). Elle sera ignorée.`);
+    geminiBaseUrl = undefined;
+  } else {
+    console.log(`[Gemini SDK] Utilisation de l'adresse de contournement/proxy pour l'API : ${geminiBaseUrl}`);
+  }
 }
 
 const ai = apiKey
@@ -29,6 +34,59 @@ const ai = apiKey
       },
     })
   : null;
+
+// Helper function to call Gemini with a stable fallback mechanism in case of high demand (e.g. 503 ERROR)
+async function generateContentWithFallback(
+  aiClient: any,
+  options: {
+    contents: any;
+    systemInstruction?: string;
+    temperature?: number;
+    responseMimeType?: string;
+  }
+) {
+  const models = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"];
+  let lastError: any = null;
+
+  for (const model of models) {
+    try {
+      console.log(`[Gemini Helper] Tentative de génération avec le modèle : ${model}`);
+      const response = await aiClient.models.generateContent({
+        model: model,
+        contents: options.contents,
+        config: {
+          systemInstruction: options.systemInstruction,
+          temperature: options.temperature,
+          ...(options.responseMimeType ? { responseMimeType: options.responseMimeType } : {}),
+        },
+      });
+      console.log(`[Gemini Helper] Succès avec le modèle : ${model}`);
+      return response;
+    } catch (err: any) {
+      console.warn(`[Gemini Helper] Échec avec le modèle ${model} :`, err.message || err);
+      lastError = err;
+      
+      // If it's a 503 (temporary spike in demand) or service unavailable, try the next fallback model immediately
+      const errStr = String(err.message || err).toUpperCase();
+      if (
+        err.status === 503 ||
+        errStr.includes("503") ||
+        errStr.includes("DEMAND") ||
+        errStr.includes("UNAVAILABLE") ||
+        errStr.includes("OVERLOADED")
+      ) {
+        // Wait briefly (200ms) and continue to the next model
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        continue;
+      }
+      
+      // For any other errors, wait a bit and continue to the next model as a safety fallback
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
+  
+  throw lastError || new Error("Impossible de générer une réponse de l'IA (tous les modèles ont échoué).");
+}
 
 // API endpoint for chatbot communication with rich context
 app.post("/api/chat", async (req, res) => {
@@ -86,7 +144,7 @@ RÈGLE ABSOLUE DE PÉRIMÈTRE - LIMITATION STRICTE AUX FINANCES :
 Vous ne devez répondre QU'AUX questions qui concernent directement les finances, le budget personnel, l'économie, l'épargne ou l'investissement.
 Si l'utilisateur pose une question hors-sujet qui ne concerne pas le domaine financier (comme de la cuisine, de la programmation générale, des conseils de voyage, de la politique non économique, de la culture générale divertissante, etc.), vous devez impérativement et de manière polie refuser de répondre avec un message ciblé :
 "Désolé, en tant qu'assistant de gestion financière, je ne peux répondre qu'aux questions en lien direct avec les finances, le budget, l'investissement et l'économie."
-
+ 
 RÈGLE DE RÉFÉRENCE AUX OUVRAGES FINANCIERS :
 Lorsque vous formulez des conseils, suggérez des améliorations de budget, ou commentez une projection financière, faites obligatoirement des clins d'œil et intégrez des leçons des célèbres livres de référence de la finance personnelle :
 1. "The Intelligent Investor" (L'Investisseur Intelligent) de Benjamin Graham (pour évoquer la marge de sécurité, l'investissement à long terme ou l'attitude face aux fluctuations).
@@ -115,14 +173,11 @@ Consignes :
       parts: [{ text: m.content }],
     }));
 
-    // If the last message isn't pointing to formattedContents or empty, handle it
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    // Use the robust fallback helper to handle temporary high demand on specific models
+    const response = await generateContentWithFallback(ai, {
       contents: formattedContents,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
+      systemInstruction,
+      temperature: 0.7,
     });
 
     const text = response.text || "Désolé, je n'ai pas pu générer de réponse.";
@@ -176,14 +231,11 @@ Format JSON requis :
   "date_transaction": "2026-06-03"
 }`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await generateContentWithFallback(ai, {
       contents: prompt,
-      config: {
-        systemInstruction,
-        temperature: 0.1,
-        responseMimeType: "application/json"
-      }
+      systemInstruction,
+      temperature: 0.1,
+      responseMimeType: "application/json",
     });
 
     const resultText = response.text || "{}";

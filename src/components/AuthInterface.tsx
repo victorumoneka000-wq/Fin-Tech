@@ -293,7 +293,7 @@ export default function AuthInterface({
                       </div>
                       <div className="flex gap-2 items-start">
                         <span className="text-rose-400 text-xs">🌍</span>
-                        <span><strong>Réseau Restreint (ex: RDC) :</strong> Si vous testez depuis le Congo RDC, les fournisseurs de services bloquent parfois l'accès CDN de Supabase. Utilisez un VPN gratuit (ex: Proton VPN) raccordé en France ou en Belgique.</span>
+                        <span><strong>Réseau & Connexion :</strong> Notre serveur cloud se charge d'exécuter les requêtes en toute transparence sans nécessité de VPN de votre côté. Vérifiez simplement votre accès internet général.</span>
                       </div>
                       <div className="flex gap-2 items-start">
                         <span className="text-rose-400 text-xs">🔗</span>
