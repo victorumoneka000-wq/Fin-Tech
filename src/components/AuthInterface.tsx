@@ -104,14 +104,21 @@ export default function AuthInterface({
 
         {/* Warning if Supabase is unconfigured in standard variables */}
         {!isConfigured && !showCustomConfigPanel && (
-          <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl text-amber-300 text-xs flex flex-col gap-2 mb-6">
+          <div className="bg-amber-500/10 border border-amber-500/25 p-4 rounded-xl text-amber-400 text-xs flex flex-col gap-3 mb-6">
             <div className="flex gap-2 items-start">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
               <div>
-                <strong className="block font-semibold">Mode Supabase Inactif</strong>
-                Les clés d'environnement Supabase ne sont pas définies par défaut. Vous pouvez tester en mode démo local ou brancher votre propre projet.
+                <strong className="block font-semibold text-amber-300">Mode Supabase Inactif</strong>
+                Les clés d'environnement de votre base de données ne sont pas renseignées par défaut.
               </div>
             </div>
+            <button
+              onClick={() => setShowCustomConfigPanel(true)}
+              type="button"
+              className="w-full text-center text-xs bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-200 px-3 py-2 rounded-xl transition-all font-bold flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-wider"
+            >
+              <Database className="w-3.5 h-3.5" /> Configurer mes clés Supabase ➔
+            </button>
           </div>
         )}
 
