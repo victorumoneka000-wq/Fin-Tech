@@ -5,7 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
-const app = express();
+export const app = express();
 const PORT = 3000;
 
 app.use(express.json());
@@ -295,4 +295,6 @@ const startServer = async () => {
   });
 };
 
-startServer();
+if (!process.env.NETLIFY && !process.env.LAMBDA_TASK_ROOT) {
+  startServer();
+}

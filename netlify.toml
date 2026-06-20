@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# Redirection de l'API Express vers la fonction Serverless Netlify
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+
+# Gestion du routage SPA (Single Page Application) côté client
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
