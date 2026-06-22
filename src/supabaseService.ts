@@ -39,18 +39,18 @@ export const supabaseService = {
     if (authError) throw authError;
     if (!authData.user) throw new Error("Échec de la création de l'utilisateur.");
 
-    // Create default initial profile in profiles table
+    // Create default initial profile in profiles table with zeroed out numbers
     const defaultProfile: FinancialProfile = {
       name,
-      revenu_mensuel: 2000,
-      loyer: 500,
-      transport: 100,
-      alimentation: 300,
-      factures: 100,
-      loisirs: 100,
-      epargne: 1000,
-      objectif_nom: "Voyage",
-      objectif_montant: 5000,
+      revenu_mensuel: 0,
+      loyer: 0,
+      transport: 0,
+      alimentation: 0,
+      factures: 0,
+      loisirs: 0,
+      epargne: 0,
+      objectif_nom: "Mon Épargne",
+      objectif_montant: 0,
     };
 
     // Try to insert profile. It might fail if tables aren't made yet.

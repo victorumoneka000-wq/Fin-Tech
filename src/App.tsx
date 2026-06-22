@@ -241,24 +241,43 @@ export default function App() {
         .eq("id", userId)
         .single();
       
+      const userName = userSession?.user?.user_metadata?.full_name || pData?.name || "Utilisateur";
+
+      const zeroedProfile = {
+        name: userName,
+        revenu_mensuel: 0,
+        loyer: 0,
+        transport: 0,
+        alimentation: 0,
+        factures: 0,
+        loisirs: 0,
+        epargne: 0,
+        objectif_nom: "Mon Épargne",
+        objectif_montant: 0
+      };
+
+      let activeProfile = zeroedProfile;
+
       if (pError && pError.code === "PGRST116") {
-        const initialProfile = {
-          name: userSession?.user?.user_metadata?.full_name || "Utilisateur Supabase",
-          revenu_mensuel: profile.revenu_mensuel,
-          loyer: profile.loyer,
-          transport: profile.transport,
-          alimentation: profile.alimentation,
-          factures: profile.factures,
-          loisirs: profile.loisirs,
-          epargne: profile.epargne,
-          objectif_nom: profile.objectif_nom,
-          objectif_montant: profile.objectif_montant
-        };
-        await supabase.from("profiles").insert([{ id: userId, ...initialProfile }]);
-        setProfile(initialProfile);
+        await supabase.from("profiles").insert([{ id: userId, ...zeroedProfile }]);
+        activeProfile = zeroedProfile;
       } else if (pData) {
-        setProfile(pData);
+        activeProfile = {
+          name: pData.name || userName,
+          revenu_mensuel: typeof pData.revenu_mensuel === "number" ? pData.revenu_mensuel : 0,
+          loyer: typeof pData.loyer === "number" ? pData.loyer : 0,
+          transport: typeof pData.transport === "number" ? pData.transport : 0,
+          alimentation: typeof pData.alimentation === "number" ? pData.alimentation : 0,
+          factures: typeof pData.factures === "number" ? pData.factures : 0,
+          loisirs: typeof pData.loisirs === "number" ? pData.loisirs : 0,
+          epargne: typeof pData.epargne === "number" ? pData.epargne : 0,
+          objectif_nom: pData.objectif_nom || "Mon Épargne",
+          objectif_montant: typeof pData.objectif_montant === "number" ? pData.objectif_montant : 0,
+        };
       }
+
+      setProfile(activeProfile);
+      localStorage.setItem("fintech_profile", JSON.stringify(activeProfile));
 
       const { data: tData } = await supabase
         .from("transactions")
@@ -266,9 +285,10 @@ export default function App() {
         .eq("user_id", userId)
         .order("date_transaction", { ascending: false });
 
-      if (tData) {
-        setTransactions(tData);
-      }
+      const loadedTransactions = tData || [];
+      setTransactions(loadedTransactions);
+      localStorage.setItem("fintech_transactions", JSON.stringify(loadedTransactions));
+
     } catch (err) {
       console.error("Error loading user data from Supabase:", err);
     }
