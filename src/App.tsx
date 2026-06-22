@@ -4,7 +4,6 @@ import {
   DollarSign,
   Sliders,
   TrendingUp,
-  Mail,
   RefreshCw,
   LogOut,
   LogIn,
@@ -15,15 +14,6 @@ import { FinancialProfile, Transaction, ChatMessage } from "./types";
 import { supabase, getSupabaseConfig } from "./supabaseClient";
 import AuthInterface from "./components/AuthInterface";
 
-// Import Gmail Client & Google Authentication helpers
-import {
-  initFirebaseAuth,
-  googleSignIn,
-  logoutGmail,
-  listRecentEmails,
-  GmailEmailPreview,
-} from "./gmailClient";
-
 // Import modular components
 import ConfirmModal from "./components/ConfirmModal";
 import ToastNotifications, { Toast } from "./components/ToastNotifications";
@@ -31,7 +21,6 @@ import DashboardTab from "./components/DashboardTab";
 import TransactionsTab from "./components/TransactionsTab";
 import ProfileTab from "./components/ProfileTab";
 import ProjectionsTab from "./components/ProjectionsTab";
-import GmailTab from "./components/GmailTab";
 import ChatSidebar from "./components/ChatSidebar";
 
 // Default empty/zero state values
@@ -105,7 +94,7 @@ export default function App() {
   });
 
   // UI Active tabs:
-  const [activeTab, setActiveTab] = useState<"dashboard" | "transactions" | "profile" | "projections" | "gmail">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "transactions" | "profile" | "projections">("dashboard");
 
   // Chat sidebar resizable & collapsible states
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -147,17 +136,6 @@ export default function App() {
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isResizing]);
-
-  // Gmail & Google Auth states
-  const [googleUser, setGoogleUser] = useState<any>(null);
-  const [gmailToken, setGmailToken] = useState<string | null>(null);
-  const [recentEmails, setRecentEmails] = useState<GmailEmailPreview[]>([]);
-  const [emailsLoading, setEmailsLoading] = useState(false);
-  const [gmailError, setGmailError] = useState<string | null>(null);
-  const [emailToAnalyze, setEmailToAnalyze] = useState<GmailEmailPreview | null>(null);
-  const [isParsingEmail, setIsParsingEmail] = useState(false);
-  const [parsedCandidate, setParsedCandidate] = useState<Transaction | null>(null);
-  const [scanLimit, setScanLimit] = useState(10);
 
   // Custom non-blocking Toast notification state
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -209,153 +187,7 @@ export default function App() {
   // Chat window anchor ref
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Sync back to local storage helper for Gmail
-  const handleFetchGmailEmails = async (tokenToUse?: string) => {
-    const activeToken = tokenToUse || gmailToken;
-    if (!activeToken) return;
-    setEmailsLoading(true);
-    setGmailError(null);
-    try {
-      const fetched = await listRecentEmails(activeToken, scanLimit);
-      setRecentEmails(fetched);
-    } catch (err: any) {
-      console.error("Gmail fetch error:", err);
-      setGmailError(err.message || "Erreur lors de la récupération des e-mails. Veuillez vous reconnecter.");
-    } finally {
-      setEmailsLoading(false);
-    }
-  };
 
-  const handleGoogleLogin = async () => {
-    setGmailError(null);
-    try {
-      const result = await googleSignIn();
-      if (result) {
-        setGoogleUser(result.user);
-        setGmailToken(result.accessToken);
-        setEmailsLoading(true);
-        try {
-          const fetched = await listRecentEmails(result.accessToken, scanLimit);
-          setRecentEmails(fetched);
-        } catch (fErr) {
-          console.error("Auto fetch error:", fErr);
-        } finally {
-          setEmailsLoading(false);
-        }
-      }
-    } catch (err: any) {
-      console.error("Google sign-in error:", err);
-      setGmailError(err.message || "La connexion avec Google a échoué.");
-    }
-  };
-
-  const handleGoogleLogout = async () => {
-    try {
-      await logoutGmail();
-      setGoogleUser(null);
-      setGmailToken(null);
-      setRecentEmails([]);
-    } catch (err) {
-      console.error("Google logout error:", err);
-    }
-  };
-
-  const handleAnalyzeEmail = async (email: GmailEmailPreview) => {
-    setEmailToAnalyze(email);
-    setIsParsingEmail(true);
-    setParsedCandidate(null);
-    setGmailError(null);
-    try {
-      const response = await fetch("/api/parse-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          subject: email.subject,
-          from: email.from,
-          date: email.date,
-          body: email.body,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Impossible de communiquer avec le service d'analyse de courriels.");
-      }
-
-      const result = await response.json();
-      if (result.is_transaction) {
-        setParsedCandidate({
-          id: `gmail-tx-${email.id}`,
-          type: result.type || "Dépense",
-          categorie: result.categorie || "Alimentation",
-          montant: Number(result.montant) || 0,
-          description: result.description || email.subject,
-          date_transaction: result.date_transaction || new Date().toISOString().split("T")[0],
-        });
-      } else {
-        setParsedCandidate(null);
-      }
-    } catch (err: any) {
-      console.error("Error analyzing email:", err);
-      setGmailError("Une erreur est survenue pendant l'analyse de l'e-mail.");
-    } finally {
-      setIsParsingEmail(false);
-    }
-  };
-
-  const handleConfirmCandidateTransaction = async () => {
-    if (!parsedCandidate) return;
-    
-    const payload = {
-      ...parsedCandidate,
-    };
-
-    setTransactions((prev) => {
-      const updated = [payload, ...prev];
-      localStorage.setItem("fintech_transactions", JSON.stringify(updated));
-      return updated;
-    });
-
-    if (userSession?.user && supabase) {
-      try {
-        await supabase.from("transactions").insert({
-          id: payload.id,
-          user_id: userSession.user.id,
-          type: payload.type,
-          categorie: payload.categorie,
-          montant: payload.montant,
-          description: payload.description,
-          date_transaction: payload.date_transaction,
-        });
-      } catch (err) {
-        console.error("Error syncing transaction:", err);
-      }
-    }
-
-    setParsedCandidate(null);
-    setEmailToAnalyze(null);
-  };
-
-  // Listen for Google Auth state from Firebase on mount
-  useEffect(() => {
-    const unsubscribeGmail = initFirebaseAuth(
-      (user, token) => {
-        setGoogleUser(user);
-        setGmailToken(token);
-        listRecentEmails(token, 10)
-          .then((fetched) => setRecentEmails(fetched))
-          .catch((err) => console.error("Auto fetch Gmail Error:", err));
-      },
-      () => {
-        setGoogleUser(null);
-        setGmailToken(null);
-      }
-    );
-    return () => {
-      unsubscribeGmail();
-    };
-  }, []);
 
   // Auth Effects and Syncload logic
   useEffect(() => {
@@ -755,18 +587,7 @@ export default function App() {
             <TrendingUp className="w-5 h-5" />
           </button>
 
-          <button
-            id="nav-tab-gmail"
-            onClick={() => setActiveTab("gmail")}
-            title="Sycnhronisation Gmail (IA)"
-            className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all cursor-pointer ${
-              activeTab === "gmail"
-                ? "bg-slate-800 text-indigo-400 border-l-4 border-indigo-550"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Mail className="w-5 h-5" />
-          </button>
+
         </div>
 
         <div className="mt-auto flex flex-col gap-4 items-center">
@@ -823,15 +644,7 @@ export default function App() {
           <TrendingUp className="w-5 h-5" />
           <span className="text-[9px] mt-1 font-medium font-sans">Futur</span>
         </button>
-        <button
-          onClick={() => setActiveTab("gmail")}
-          className={`flex flex-col items-center justify-center transition-all cursor-pointer ${
-            activeTab === "gmail" ? "text-indigo-400" : "text-slate-400"
-          }`}
-        >
-          <Mail className="w-5 h-5" />
-          <span className="text-[9px] mt-1 font-medium font-sans">Gmail</span>
-        </button>
+
         <button
           onClick={() => {
             setShowChat(prev => {
@@ -865,7 +678,6 @@ export default function App() {
                 {activeTab === "transactions" && "Registre de Transactions"}
                 {activeTab === "profile" && "Configuration des Budgets & Objectifs"}
                 {activeTab === "projections" && "Simulation de Projections Financières"}
-                {activeTab === "gmail" && "Synchronisation Intelligente Gmail"}
               </h1>
             </div>
 
@@ -977,26 +789,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === "gmail" && (
-              <GmailTab
-                googleUser={googleUser}
-                gmailError={gmailError}
-                scanLimit={scanLimit}
-                setScanLimit={setScanLimit}
-                emailsLoading={emailsLoading}
-                recentEmails={recentEmails}
-                emailToAnalyze={emailToAnalyze}
-                setEmailToAnalyze={setEmailToAnalyze}
-                parsedCandidate={parsedCandidate}
-                setParsedCandidate={setParsedCandidate}
-                isParsingEmail={isParsingEmail}
-                handleGoogleLogin={handleGoogleLogin}
-                handleGoogleLogout={handleGoogleLogout}
-                handleFetchGmailEmails={handleFetchGmailEmails}
-                handleAnalyzeEmail={handleAnalyzeEmail}
-                handleConfirmCandidateTransaction={handleConfirmCandidateTransaction}
-              />
-            )}
+
 
             {/* Direct server connections explanation help */}
             <div id="footer-helper-area" className="mt-auto pt-4 border-t border-slate-150 flex flex-col md:flex-row md:items-center justify-between gap-3 text-slate-400 text-[10px] shrink-0 font-medium font-sans">

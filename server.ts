@@ -191,65 +191,6 @@ Consignes :
   }
 });
 
-// Endpoint to parse financial emails with Gemini
-app.post("/api/parse-email", async (req, res) => {
-  try {
-    const { subject, from, date, body } = req.body;
-
-    if (!ai) {
-      return res.status(500).json({
-        error: "Le serveur n'est pas configuré. GEMINI_API_KEY est manquante.",
-      });
-    }
-
-    const systemInstruction = "Tu es un parseur JSON de courriels d'achats, reçus et factures bancaires. Tu dois extraire les informations requises dans le format JSON demandé.";
-    
-    const prompt = `Analyse le courriel suivant :
-Sujet : ${subject || ""}
-De : ${from || ""}
-Date : ${date || ""}
-Contenu : ${body || ""}
-
-Règles de parsing :
-1. Détermine si ce message est relatif à une transaction financière réelle (achat, reçu de paiement, virement bancaire, facture payée, salaire reçu).
-2. Si ce n'est PAS une transaction financière (ex: pub, spam, confirmation d'inscription sans prix, discussion générale), retourne :
-   {"is_transaction": false}
-3. Si c'est une transaction :
-   - Extrais le type : "Dépense" (achat, débit, facture payée) ou "Revenu" (virement reçu, salaire, remboursement).
-   - Sélectionne la catégorie la plus adaptée parmi : "Salaire", "Loyer", "Transport", "Alimentation", "Factures", "Loisirs", "Épargne", ou "Autre".
-   - Extrais le montant numérique net exact en nombre décimal/entier (sans devise).
-   - Saisis une description lisible décrivant le marchand ou l'opération (ex: "Facture EDF", "Abonnement Spotify", "Courses Carrefour").
-   - Extrais ou convertis la date de la transaction au format YYYY-MM-DD.
-
-Format JSON requis :
-{
-  "is_transaction": true,
-  "type": "Dépense",
-  "categorie": "Alimentation",
-  "montant": 45.50,
-  "description": "Courses de semaine",
-  "date_transaction": "2026-06-03"
-}`;
-
-    const response = await generateContentWithFallback(ai, {
-      contents: prompt,
-      systemInstruction,
-      temperature: 0.1,
-      responseMimeType: "application/json",
-    });
-
-    const resultText = response.text || "{}";
-    const resultJson = JSON.parse(resultText);
-    res.json(resultJson);
-  } catch (error: any) {
-    console.error("Parse Email Error:", error);
-    res.status(500).json({
-      error: "Erreur pendant le parsing du courriel.",
-      details: error.message
-    });
-  }
-});
-
 // Serve frontend assets in production / dev setup middleware
 const startServer = async () => {
   if (process.env.NODE_ENV !== "production") {
