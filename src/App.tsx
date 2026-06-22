@@ -316,18 +316,14 @@ export default function App() {
     localStorage.setItem("fintech_chat", JSON.stringify(freshMessages));
   };
 
-  // Sync back to local storage (only as backup / non-logged-in sessions fallback)
+  // Sync back to local storage (always auto-saves for offline and fallback support)
   useEffect(() => {
-    if (!userSession) {
-      localStorage.setItem("fintech_profile", JSON.stringify(profile));
-    }
-  }, [profile, userSession]);
+    localStorage.setItem("fintech_profile", JSON.stringify(profile));
+  }, [profile]);
 
   useEffect(() => {
-    if (!userSession) {
-      localStorage.setItem("fintech_transactions", JSON.stringify(transactions));
-    }
-  }, [transactions, userSession]);
+    localStorage.setItem("fintech_transactions", JSON.stringify(transactions));
+  }, [transactions]);
 
   useEffect(() => {
     localStorage.setItem("fintech_chat", JSON.stringify(messages));
@@ -496,27 +492,36 @@ export default function App() {
 
   // Profile update handler
   const handleSaveProfile = async (updated: FinancialProfile) => {
-    if (userSession?.user && supabase) {
-      const { error } = await supabase.from("profiles").upsert({
-        id: userSession.user.id,
-        name: updated.name,
-        revenu_mensuel: updated.revenu_mensuel,
-        loyer: updated.loyer,
-        transport: updated.transport,
-        alimentation: updated.alimentation,
-        factures: updated.factures,
-        loisirs: updated.loisirs,
-        epargne: updated.epargne,
-        objectif_nom: updated.objectif_nom,
-        objectif_montant: updated.objectif_montant
-      });
-      if (error) {
-        showToast("Erreur de mise à jour du profil Supabase: " + error.message, "error");
-        return;
+    let offline = !navigator.onLine;
+    if (userSession?.user && supabase && !offline) {
+      try {
+        const { error } = await supabase.from("profiles").upsert({
+          id: userSession.user.id,
+          name: updated.name,
+          revenu_mensuel: updated.revenu_mensuel,
+          loyer: updated.loyer,
+          transport: updated.transport,
+          alimentation: updated.alimentation,
+          factures: updated.factures,
+          loisirs: updated.loisirs,
+          epargne: updated.epargne,
+          objectif_nom: updated.objectif_nom,
+          objectif_montant: updated.objectif_montant
+        });
+        if (error) {
+          console.warn("DB offline or error, setting locally:", error);
+          offline = true;
+        }
+      } catch (e) {
+        offline = true;
       }
     }
     setProfile(updated);
-    showToast("Profil financier sauvegardé avec succès !");
+    if (offline) {
+      showToast("Profil enregistré localement (Mode hors-ligne) 💾", "info");
+    } else {
+      showToast("Profil financier sauvegardé avec succès !");
+    }
   };
 
   if (!userSession && !bypassAuth) {

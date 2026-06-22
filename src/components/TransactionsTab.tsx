@@ -53,19 +53,24 @@ export default function TransactionsTab({
       date_transaction: newTx.date_transaction,
     };
 
-    if (userSession?.user && supabase) {
-      const { error } = await supabase.from("transactions").insert([{
-        id: created.id,
-        user_id: userSession.user.id,
-        type: created.type,
-        categorie: created.categorie,
-        montant: created.montant,
-        description: created.description,
-        date_transaction: created.date_transaction
-      }]);
-      if (error) {
-        showToast("Erreur de sauvegarde de la transaction dans Supabase: " + error.message, "error");
-        return;
+    let offline = !navigator.onLine;
+    if (userSession?.user && supabase && !offline) {
+      try {
+        const { error } = await supabase.from("transactions").insert([{
+          id: created.id,
+          user_id: userSession.user.id,
+          type: created.type,
+          categorie: created.categorie,
+          montant: created.montant,
+          description: created.description,
+          date_transaction: created.date_transaction
+        }]);
+        if (error) {
+          console.warn("DB offline or error during tx save:", error);
+          offline = true;
+        }
+      } catch (e) {
+        offline = true;
       }
     }
 
@@ -78,7 +83,11 @@ export default function TransactionsTab({
       date_transaction: new Date().toISOString().split("T")[0],
     });
     setShowAddTx(false);
-    showToast("Transaction enregistrée avec succès !");
+    if (offline) {
+      showToast("Transaction enregistrée localement (Mode hors-ligne) 💾", "info");
+    } else {
+      showToast("Transaction enregistrée avec succès !");
+    }
   };
 
   // CSV Importer logic
@@ -117,27 +126,37 @@ export default function TransactionsTab({
     });
 
     if (importedTx.length > 0) {
-      if (userSession?.user && supabase) {
-        const payload = importedTx.map(t => ({
-          id: t.id,
-          user_id: userSession.user.id,
-          type: t.type,
-          categorie: t.categorie,
-          montant: t.montant,
-          description: t.description,
-          date_transaction: t.date_transaction
-        }));
-        const { error } = await supabase.from("transactions").insert(payload);
-        if (error) {
-          showToast("Erreur d'import des transactions dans Supabase: " + error.message, "error");
-          return;
+      let offline = !navigator.onLine;
+      if (userSession?.user && supabase && !offline) {
+        try {
+          const payload = importedTx.map(t => ({
+            id: t.id,
+            user_id: t.id ? userSession.user.id : null, // Prevent crash if missing t.id
+            type: t.type,
+            categorie: t.categorie,
+            montant: t.montant,
+            description: t.description,
+            date_transaction: t.date_transaction
+          }));
+          const { error } = await supabase.from("transactions").insert(payload);
+          if (error) {
+            console.warn("DB offline during CSV import:", error);
+            offline = true;
+          }
+        } catch (e) {
+          offline = true;
         }
       }
       setTransactions((prev) => [...importedTx, ...prev]);
       setCsvSuccessMsg(`Succès! ${addedCount} transactions importées avec succès.`);
       setCsvContentText("");
       setTimeout(() => setCsvSuccessMsg(""), 4000);
-      showToast(`${addedCount} transactions importées !`);
+      
+      if (offline) {
+        showToast(`${addedCount} transactions importées localement ! 💾`, "info");
+      } else {
+        showToast(`${addedCount} transactions importées !`);
+      }
     } else {
       showToast("Aucune ligne CSV interprétable n'a été détectée.", "error");
     }
@@ -382,15 +401,24 @@ export default function TransactionsTab({
                             "Supprimer la transaction",
                             "Êtes-vous sûr de vouloir supprimer définitivement cette transaction ?",
                             async () => {
-                              if (userSession?.user && supabase) {
-                                const { error } = await supabase.from("transactions").delete().eq("id", t.id);
-                                if (error) {
-                                  showToast("Erreur lors de la suppression de la transaction sur Supabase: " + error.message, "error");
-                                  return;
+                              let offline = !navigator.onLine;
+                              if (userSession?.user && supabase && !offline) {
+                                try {
+                                  const { error } = await supabase.from("transactions").delete().eq("id", t.id);
+                                  if (error) {
+                                    console.warn("DB offline or error during delete:", error);
+                                    offline = true;
+                                  }
+                                } catch (e) {
+                                  offline = true;
                                 }
                               }
                               setTransactions(transactions.filter((item) => item.id !== t.id));
-                              showToast("Transaction effacée avec succès.");
+                              if (offline && userSession?.user) {
+                                showToast("Transaction effacée localement (Mode hors-ligne) 💾", "info");
+                              } else {
+                                showToast("Transaction effacée avec succès.");
+                              }
                             }
                           );
                         }}
@@ -413,15 +441,24 @@ export default function TransactionsTab({
                 "Remise à zéro complète",
                 "Attention: cela effacera définitivement toutes vos transactions du registre.",
                 async () => {
-                  if (userSession?.user && supabase) {
-                    const { error } = await supabase.from("transactions").delete().eq("user_id", userSession.user.id);
-                    if (error) {
-                      showToast("Erreur Supabase lors de la suppression : " + error.message, "error");
-                      return;
+                  let offline = !navigator.onLine;
+                  if (userSession?.user && supabase && !offline) {
+                    try {
+                      const { error } = await supabase.from("transactions").delete().eq("user_id", userSession.user.id);
+                      if (error) {
+                        console.warn("DB offline or error during mass delete:", error);
+                        offline = true;
+                      }
+                    } catch (e) {
+                      offline = true;
                     }
                   }
                   setTransactions([]);
-                  showToast("Registre complet réinitialisé !", "info");
+                  if (offline && userSession?.user) {
+                    showToast("Registre complet réinitialisé localement ! 💾", "info");
+                  } else {
+                    showToast("Registre complet réinitialisé !", "info");
+                  }
                 }
               );
             }}
