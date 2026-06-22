@@ -13,6 +13,7 @@ import {
 import { FinancialProfile, Transaction, ChatMessage } from "./types";
 import { supabase, getSupabaseConfig } from "./supabaseClient";
 import AuthInterface from "./components/AuthInterface";
+import { motion, AnimatePresence } from "motion/react";
 
 // Import modular components
 import ConfirmModal from "./components/ConfirmModal";
@@ -607,38 +608,50 @@ export default function App() {
       </nav>
 
       {/* Mobile Bottom Navigation (only on small screens) */}
-      <nav id="mobile-bottom-nav" className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0F172A] border-t border-slate-800 flex items-center justify-around px-4 z-40 shadow-xl">
+      <nav id="mobile-bottom-nav" className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0F172A] border-t border-slate-800 flex items-center justify-around px-4 z-40 shadow-xl pb-safe">
         <button
-          onClick={() => setActiveTab("dashboard")}
+          onClick={() => {
+            setActiveTab("dashboard");
+            setShowChat(false);
+          }}
           className={`flex flex-col items-center justify-center transition-all cursor-pointer ${
-            activeTab === "dashboard" ? "text-indigo-400" : "text-slate-400"
+            activeTab === "dashboard" && !showChat ? "text-indigo-400" : "text-slate-400"
           }`}
         >
           <Layers className="w-5 h-5" />
           <span className="text-[9px] mt-1 font-medium font-sans">Tableau</span>
         </button>
         <button
-          onClick={() => setActiveTab("transactions")}
+          onClick={() => {
+            setActiveTab("transactions");
+            setShowChat(false);
+          }}
           className={`flex flex-col items-center justify-center transition-all cursor-pointer ${
-            activeTab === "transactions" ? "text-indigo-400" : "text-slate-400"
+            activeTab === "transactions" && !showChat ? "text-indigo-400" : "text-slate-400"
           }`}
         >
           <DollarSign className="w-5 h-5" />
           <span className="text-[9px] mt-1 font-medium font-sans">Dépenses</span>
         </button>
         <button
-          onClick={() => setActiveTab("profile")}
+          onClick={() => {
+            setActiveTab("profile");
+            setShowChat(false);
+          }}
           className={`flex flex-col items-center justify-center transition-all cursor-pointer ${
-            activeTab === "profile" ? "text-indigo-400" : "text-slate-400"
+            activeTab === "profile" && !showChat ? "text-indigo-400" : "text-slate-400"
           }`}
         >
           <Sliders className="w-5 h-5" />
           <span className="text-[9px] mt-1 font-medium font-sans">Réglages</span>
         </button>
         <button
-          onClick={() => setActiveTab("projections")}
+          onClick={() => {
+            setActiveTab("projections");
+            setShowChat(false);
+          }}
           className={`flex flex-col items-center justify-center transition-all cursor-pointer ${
-            activeTab === "projections" ? "text-indigo-400" : "text-slate-400"
+            activeTab === "projections" && !showChat ? "text-indigo-400" : "text-slate-400"
           }`}
         >
           <TrendingUp className="w-5 h-5" />
@@ -747,47 +760,85 @@ export default function App() {
           </header>
 
           {/* Dynamic Router tab screens */}
-          <main className="flex-grow overflow-y-auto p-6 flex flex-col gap-6">
-            {activeTab === "dashboard" && (
-              <DashboardTab
-                profile={profile}
-                transactions={transactions}
-                setActiveTab={setActiveTab}
-                setShowAddTx={setShowAddTx}
-                handleSendMessage={handleSendMessage}
-              />
-            )}
+          <main className="flex-grow overflow-y-auto p-6 flex flex-col gap-6 relative">
+            <AnimatePresence mode="wait">
+              {activeTab === "dashboard" && (
+                <motion.div
+                  key="dashboard"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="flex flex-col gap-6"
+                >
+                  <DashboardTab
+                    profile={profile}
+                    transactions={transactions}
+                    setActiveTab={setActiveTab}
+                    setShowAddTx={setShowAddTx}
+                    handleSendMessage={handleSendMessage}
+                  />
+                </motion.div>
+              )}
 
-            {activeTab === "transactions" && (
-              <TransactionsTab
-                transactions={transactions}
-                setTransactions={setTransactions}
-                userSession={userSession}
-                supabase={supabase}
-                showAddTx={showAddTx}
-                setShowAddTx={setShowAddTx}
-                showToast={showToast}
-                triggerConfirm={triggerConfirm}
-              />
-            )}
+              {activeTab === "transactions" && (
+                <motion.div
+                  key="transactions"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="flex flex-col gap-6"
+                >
+                  <TransactionsTab
+                    transactions={transactions}
+                    setTransactions={setTransactions}
+                    userSession={userSession}
+                    supabase={supabase}
+                    showAddTx={showAddTx}
+                    setShowAddTx={setShowAddTx}
+                    showToast={showToast}
+                    triggerConfirm={triggerConfirm}
+                  />
+                </motion.div>
+              )}
 
-            {activeTab === "profile" && (
-              <ProfileTab
-                profile={profile}
-                setProfile={setProfile}
-                handleResetAllData={handleResetAllData}
-                handleSaveProfile={handleSaveProfile}
-              />
-            )}
+              {activeTab === "profile" && (
+                <motion.div
+                  key="profile"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="flex flex-col gap-6"
+                >
+                  <ProfileTab
+                    profile={profile}
+                    setProfile={setProfile}
+                    handleResetAllData={handleResetAllData}
+                    handleSaveProfile={handleSaveProfile}
+                  />
+                </motion.div>
+              )}
 
-            {activeTab === "projections" && (
-              <ProjectionsTab
-                profile={profile}
-                simulatorExtraSavings={simulatorExtraSavings}
-                setSimulatorExtraSavings={setSimulatorExtraSavings}
-                handleSendMessage={handleSendMessage}
-              />
-            )}
+              {activeTab === "projections" && (
+                <motion.div
+                  key="projections"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="flex flex-col gap-6"
+                >
+                  <ProjectionsTab
+                    profile={profile}
+                    simulatorExtraSavings={simulatorExtraSavings}
+                    setSimulatorExtraSavings={setSimulatorExtraSavings}
+                    handleSendMessage={handleSendMessage}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
 
 

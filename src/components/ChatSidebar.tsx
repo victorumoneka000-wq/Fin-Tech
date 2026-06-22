@@ -2,6 +2,7 @@ import React from "react";
 import { Sparkles, X, MessageSquare } from "lucide-react";
 import { ChatMessage } from "../types";
 import { renderMarkdownText } from "../utils/markdown";
+import { motion, AnimatePresence } from "motion/react";
 
 interface ChatSidebarProps {
   showChat: boolean;
@@ -38,8 +39,6 @@ export default function ChatSidebar({
   STARTER_ASSISTANT_REPLY,
   chatEndRef,
 }: ChatSidebarProps) {
-  if (!showChat) return null;
-
   // Quick suggestions prompt shooter
   const handleQuickPromptClick = (topicPrompt: string) => {
     setInputText("");
@@ -47,18 +46,31 @@ export default function ChatSidebar({
   };
 
   return (
-    <React.Fragment>
-      {/* Background overlay on mobile screen bounds */}
-      <div 
-        className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 transition-opacity"
-        onClick={() => setShowChat(false)}
-      />
+    <AnimatePresence>
+      {showChat && (
+        <React.Fragment>
+          {/* Background overlay on mobile screen bounds */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="md:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40"
+            onClick={() => {
+              setShowChat(false);
+              localStorage.setItem("fintech_show_chat", "false");
+            }}
+          />
 
-      <aside 
-        id="workspace-sidebar" 
-        style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
-        className="fixed md:relative inset-y-0 right-0 z-50 md:z-0 w-full md:w-[var(--sidebar-width)] max-w-full bg-white flex flex-col shrink-0 border-l border-slate-200 shadow-2xl md:shadow-none transition-all"
-      >
+          <motion.aside 
+            id="workspace-sidebar" 
+            style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed md:relative inset-y-0 right-0 z-50 md:z-0 w-[calc(100%-56px)] md:w-[var(--sidebar-width)] max-w-full bg-white flex flex-col shrink-0 border-l border-slate-200 shadow-2xl md:shadow-none"
+          >
         
         {/* Resize handle bar */}
         <div 
@@ -215,7 +227,9 @@ export default function ChatSidebar({
           </p>
         </div>
 
-      </aside>
-    </React.Fragment>
+      </motion.aside>
+        </React.Fragment>
+      )}
+    </AnimatePresence>
   );
 }
