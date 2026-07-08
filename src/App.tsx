@@ -10,7 +10,7 @@ import {
   MessageSquare,
   HelpCircle,
 } from "lucide-react";
-import { FinancialProfile, Transaction, ChatMessage } from "./types";
+import { FinancialProfile, Transaction, ChatMessage, ChatDiscussion } from "./types";
 import { supabase, getSupabaseConfig } from "./supabaseClient";
 import AuthInterface from "./components/AuthInterface";
 import { motion, AnimatePresence } from "motion/react";
@@ -75,24 +75,158 @@ export default function App() {
     return DEFAULT_TRANSACTIONS;
   });
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    const saved = localStorage.getItem("fintech_chat");
-    if (saved) {
+  // Load and manage multiple chat discussions
+  const [discussions, setDiscussions] = useState<ChatDiscussion[]>(() => {
+    const savedDiscussions = localStorage.getItem("fintech_chat_discussions");
+    if (savedDiscussions) {
       try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // Fallback
-      }
+        return JSON.parse(savedDiscussions);
+      } catch (e) {}
     }
-    return [
+    
+    // Fallback/Migration: check if old flat messages exist
+    const savedOldChat = localStorage.getItem("fintech_chat");
+    if (savedOldChat) {
+      try {
+        const oldMsgs = JSON.parse(savedOldChat);
+        if (Array.isArray(oldMsgs) && oldMsgs.length > 0) {
+          const firstUserMsg = oldMsgs.find(m => m.role === "user");
+          const title = firstUserMsg 
+            ? (firstUserMsg.content.substring(0, 32) + (firstUserMsg.content.length > 32 ? "..." : ""))
+            : "Analyse de Budget Importée";
+          const migratedDisc: ChatDiscussion = {
+            id: "disc-migration",
+            title: title,
+            messages: oldMsgs,
+            createdAt: new Date().toLocaleDateString("fr-FR")
+          };
+          return [migratedDisc];
+        }
+      } catch (e) {}
+    }
+
+    // Default first discussion
+    return [{
+      id: "disc-1",
+      title: "Analyse Budgétaire Principale",
+      messages: [
+        {
+          id: "init-1",
+          role: "assistant",
+          content: STARTER_ASSISTANT_REPLY,
+          timestamp: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+        }
+      ],
+      createdAt: new Date().toLocaleDateString("fr-FR")
+    }];
+  });
+
+  const [activeDiscussionId, setActiveDiscussionId] = useState<string>(() => {
+    const savedActiveId = localStorage.getItem("fintech_active_discussion_id");
+    if (savedActiveId) return savedActiveId;
+    return "disc-1";
+  });
+
+  // Derived active discussion & messages
+  const activeDiscussion = discussions.find(d => d.id === activeDiscussionId) || discussions[0] || {
+    id: "disc-1",
+    title: "Analyse Budgétaire Principale",
+    messages: [
       {
         id: "init-1",
         role: "assistant",
         content: STARTER_ASSISTANT_REPLY,
         timestamp: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-      },
-    ];
-  });
+      }
+    ],
+    createdAt: new Date().toLocaleDateString("fr-FR")
+  };
+
+  const messages = activeDiscussion.messages;
+
+  const setMessages = (updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+    setDiscussions(prevDiscussions => {
+      let hasActive = prevDiscussions.some(d => d.id === activeDiscussionId);
+      const targetId = hasActive ? activeDiscussionId : (prevDiscussions[0]?.id || "disc-1");
+      
+      return prevDiscussions.map(d => {
+        if (d.id === targetId) {
+          const nextMsgs = typeof updater === "function" ? updater(d.messages) : updater;
+          
+          let nextTitle = d.title;
+          if (d.title === "Nouvelle discussion" || d.title === "Analyse Budgétaire Principale") {
+            const firstUserMsg = nextMsgs.find(m => m.role === "user");
+            if (firstUserMsg) {
+              nextTitle = firstUserMsg.content.substring(0, 32);
+              if (firstUserMsg.content.length > 32) {
+                nextTitle += "...";
+              }
+            }
+          }
+
+          return {
+            ...d,
+            title: nextTitle,
+            messages: nextMsgs
+          };
+        }
+        return d;
+      });
+    });
+  };
+
+  const handleCreateNewDiscussion = () => {
+    const newId = "disc-" + Date.now();
+    const newDisc: ChatDiscussion = {
+      id: newId,
+      title: "Nouvelle discussion",
+      messages: [
+        {
+          id: "init-" + Date.now(),
+          role: "assistant",
+          content: STARTER_ASSISTANT_REPLY,
+          timestamp: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+        }
+      ],
+      createdAt: new Date().toLocaleDateString("fr-FR")
+    };
+
+    setDiscussions(prev => [newDisc, ...prev]);
+    setActiveDiscussionId(newId);
+    showToast("Nouvelle discussion démarrée ! 💬");
+  };
+
+  const handleDeleteDiscussion = (id: string) => {
+    setDiscussions(prev => {
+      const filtered = prev.filter(d => d.id !== id);
+      if (filtered.length === 0) {
+        return [{
+          id: "disc-1",
+          title: "Analyse Budgétaire Principale",
+          messages: [
+            {
+              id: "init-1",
+              role: "assistant",
+              content: STARTER_ASSISTANT_REPLY,
+              timestamp: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+            }
+          ],
+          createdAt: new Date().toLocaleDateString("fr-FR")
+        }];
+      }
+      return filtered;
+    });
+
+    if (activeDiscussionId === id) {
+      const remaining = discussions.filter(d => d.id !== id);
+      if (remaining.length > 0) {
+        setActiveDiscussionId(remaining[0].id);
+      } else {
+        setActiveDiscussionId("disc-1");
+      }
+    }
+    showToast("Discussion supprimée.", "info");
+  };
 
   // UI Active tabs:
   const [activeTab, setActiveTab] = useState<"dashboard" | "transactions" | "profile" | "projections">("dashboard");
@@ -211,7 +345,7 @@ export default function App() {
         if (event === "SIGNED_IN") {
           const userName = session.user.user_metadata?.full_name || "Utilisateur";
           const welcomeContent = `Bonjour et bienvenue, **${userName}** ! 👋\n\nComment puis-je vous aider aujourd'hui à gérer votre budget, enregistrer vos transactions ou planifier vos objectifs d'épargne ?`;
-          const freshMessages = [
+          const freshMessages: ChatMessage[] = [
             {
               id: "init-" + Date.now(),
               role: "assistant",
@@ -304,7 +438,7 @@ export default function App() {
     setProfile(DEFAULT_PROFILE);
     setTransactions(DEFAULT_TRANSACTIONS);
 
-    const freshMessages = [
+    const freshMessages: ChatMessage[] = [
       {
         id: "init-" + Date.now(),
         role: "assistant",
@@ -327,7 +461,9 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem("fintech_chat", JSON.stringify(messages));
-  }, [messages]);
+    localStorage.setItem("fintech_chat_discussions", JSON.stringify(discussions));
+    localStorage.setItem("fintech_active_discussion_id", activeDiscussionId);
+  }, [messages, discussions, activeDiscussionId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -484,7 +620,7 @@ export default function App() {
             content: "Données locales remises à zéro ! Comment puis-je vous aider à structurer vos nouveaux objectifs ?",
             timestamp: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
           },
-        ]);
+        ] as ChatMessage[]);
         showToast("Toutes vos données ont été remises à zéro.", "info");
       }
     );
@@ -898,6 +1034,11 @@ export default function App() {
           showToast={showToast}
           STARTER_ASSISTANT_REPLY={STARTER_ASSISTANT_REPLY}
           chatEndRef={chatEndRef}
+          discussions={discussions}
+          activeDiscussionId={activeDiscussionId}
+          setActiveDiscussionId={setActiveDiscussionId}
+          handleCreateNewDiscussion={handleCreateNewDiscussion}
+          handleDeleteDiscussion={handleDeleteDiscussion}
         />
 
       </div>

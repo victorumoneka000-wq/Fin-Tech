@@ -26,3 +26,10 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
 }
+
+export interface ChatDiscussion {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: string;
+}
