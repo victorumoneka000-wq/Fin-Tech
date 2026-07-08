@@ -61,29 +61,31 @@ export default function ChatSidebar({
   return (
     <AnimatePresence>
       {showChat && (
-        <React.Fragment>
-          {/* Background overlay on mobile screen bounds */}
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="md:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40"
-            onClick={() => {
-              setShowChat(false);
-              localStorage.setItem("fintech_show_chat", "false");
-            }}
-          />
+        <motion.div 
+          key="chat-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="md:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40"
+          onClick={() => {
+            setShowChat(false);
+            localStorage.setItem("fintech_show_chat", "false");
+          }}
+        />
+      )}
 
-          <motion.aside 
-            id="workspace-sidebar" 
-            style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed md:relative inset-y-0 right-0 z-50 md:z-0 w-[calc(100%-56px)] md:w-[var(--sidebar-width)] max-w-full bg-white flex flex-col shrink-0 border-l border-slate-200 shadow-2xl md:shadow-none"
-          >
+      {showChat && (
+        <motion.aside 
+          key="chat-sidebar"
+          id="workspace-sidebar" 
+          style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+          initial={{ x: "100%" }}
+          animate={{ x: 0 }}
+          exit={{ x: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          className="fixed md:relative inset-y-0 right-0 z-50 md:z-0 w-[calc(100%-56px)] md:w-[var(--sidebar-width)] max-w-full bg-white flex flex-col shrink-0 border-l border-slate-200 shadow-2xl md:shadow-none"
+        >
         
         {/* Resize handle bar */}
         <div 
@@ -366,7 +368,6 @@ export default function ChatSidebar({
         )}
 
       </motion.aside>
-        </React.Fragment>
       )}
     </AnimatePresence>
   );
