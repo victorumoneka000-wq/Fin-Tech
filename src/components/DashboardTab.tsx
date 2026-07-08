@@ -56,6 +56,39 @@ export default function DashboardTab({
       return acc;
     }, {});
 
+  // Direct calculation of Budget Alignment Compliance index in percentage
+  const budgetCategoriesForCompliance = [
+    { label: "loyer", planned: Number(profile.loyer) },
+    { label: "alimentation", planned: Number(profile.alimentation) },
+    { label: "transport", planned: Number(profile.transport) },
+    { label: "factures", planned: Number(profile.factures) },
+    { label: "loisirs", planned: Number(profile.loisirs) },
+  ];
+
+  let compliantCount = 0;
+  let totalTrackedCategories = 0;
+  let totalComplianceSum = 0;
+
+  budgetCategoriesForCompliance.forEach((cat) => {
+    const plannedVal = cat.planned;
+    if (plannedVal > 0) {
+      totalTrackedCategories++;
+      const realSpent = actualCategoryExpenses[cat.label] || 0;
+      if (realSpent <= plannedVal) {
+        compliantCount++;
+        totalComplianceSum += 100;
+      } else {
+        const excess = realSpent - plannedVal;
+        const complianceScore = Math.max(0, 100 - Math.round((excess / plannedVal) * 100));
+        totalComplianceSum += complianceScore;
+      }
+    }
+  });
+
+  const fineGrainedComplianceIndex = totalTrackedCategories > 0
+    ? Math.round(totalComplianceSum / totalTrackedCategories)
+    : 100;
+
   return (
     <div id="screen-dashboard" className="flex flex-col gap-6">
       {/* Greeting banner with overview parameters */}
@@ -78,7 +111,7 @@ export default function DashboardTab({
           </button>
           <button
             onClick={() => {
-              const confirmPrompt = "Analyse mon budget actuel, mes transactions, et propose moi 3 astuces pour dépenser moins.";
+              const confirmPrompt = `Analyse mon budget actuel. Mon indice d'Alignement Budgétaire est de ${fineGrainedComplianceIndex}%. Calcule mes dépenses réelles et propose moi 3 astuces pour dépenser moins.`;
               handleSendMessage(confirmPrompt);
             }}
             className="px-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-xs py-1.5 font-semibold flex items-center gap-1.5 transition-colors shadow-lg shadow-indigo-500/10 cursor-pointer"
@@ -95,23 +128,23 @@ export default function DashboardTab({
         <div className="lg:col-span-7 flex flex-col gap-6">
           
           {/* Compact KPI side-by-side inside left area */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             
             {/* KPI 1 : Solde Actuel */}
-            <div id="card-solde" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div id="card-solde" className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Solde Total Estimé</p>
-                  <div className="w-7 h-7 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600">
-                    <DollarSign className="w-4 h-4" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Solde Estimé</p>
+                  <div className="w-6 h-6 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600">
+                    <DollarSign className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <h3 className="text-xl font-black text-slate-900 mt-2 font-display">
+                <h3 className="text-lg font-black text-slate-900 mt-2 font-display">
                   {totalBalanceComputed.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} USD
                 </h3>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                <span className="text-slate-500">Calcul en temps réel :</span>
+              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[9px]">
+                <span className="text-slate-500 font-medium">Temps réel :</span>
                 <span className="font-mono text-emerald-600 font-bold">
                   {profile.epargne} + {totalRevenuesReal} - {totalExpensesReal}
                 </span>
@@ -119,20 +152,44 @@ export default function DashboardTab({
             </div>
 
             {/* KPI 2 : Dépenses Réelles */}
-            <div id="card-depenses" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div id="card-depenses" className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Dépenses Réelles</p>
-                  <div className="w-7 h-7 bg-rose-50 rounded-lg flex items-center justify-center text-rose-600">
-                    <TrendingDown className="w-4 h-4" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dépenses Réelles</p>
+                  <div className="w-6 h-6 bg-rose-50 rounded-lg flex items-center justify-center text-rose-600">
+                    <TrendingDown className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <h3 className="text-xl font-black text-slate-900 mt-2 font-display">
+                <h3 className="text-lg font-black text-slate-900 mt-2 font-display">
                   {totalExpensesReal.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} USD
                 </h3>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-500">
-                Total théorique alloué : <strong className="text-slate-700">{totalPlannedExpenses} USD</strong>
+              <div className="mt-3 pt-2.5 border-t border-slate-100 text-[9px] text-slate-500 font-medium">
+                Alloué : <strong className="text-slate-750 font-bold">{totalPlannedExpenses} USD</strong>
+              </div>
+            </div>
+
+            {/* KPI 3 : Conformité d'Alignement Budgétaire */}
+            <div id="card-conformite" className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Alignement</p>
+                  <div className="w-6 h-6 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-black text-slate-900 mt-2 font-display">
+                  {fineGrainedComplianceIndex}%
+                </h3>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-slate-100 text-[9px] text-slate-500 font-medium">
+                {totalTrackedCategories > 0 ? (
+                  <span>
+                    Respecté : <strong className="text-slate-750 font-bold">{compliantCount}/{totalTrackedCategories}</strong> enveloppes
+                  </span>
+                ) : (
+                  <span className="text-slate-400 italic font-normal">Aucun budget défini</span>
+                )}
               </div>
             </div>
 
